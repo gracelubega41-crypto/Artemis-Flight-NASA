@@ -1,0 +1,6 @@
+{
+  "name": "Artemis Flight Academy",
+  "description": "NASA astronaut mission trainer featuring 6-DOF 3D/VR orbital docking, lunar and Martian outpost engineering simulations, real-time multiplayer telemetry, encrypted flight credentials, and AI gap analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

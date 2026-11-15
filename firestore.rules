@@ -1,0 +1,301 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'gracelubega41@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Validation blueprints
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'callsign', 'role',
+          'clearanceTier', 'missionsCompleted', 'averageSafetyScore', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'uid', 'displayName', 'callsign', 'role',
+          'clearanceTier', 'missionsCompleted', 'averageSafetyScore', 'updatedAt'
+        ]) &&
+        data.uid is string && data.uid == userId &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100 &&
+        data.callsign is string && data.callsign.size() >= 2 && data.callsign.size() <= 24 &&
+        data.callsign.matches('^[A-Z0-9\\-]+$') &&
+        data.role in ['trainee', 'instructor'] &&
+        data.clearanceTier in ['CADET', 'FLIGHT_READY', 'COMMANDER', 'FLIGHT_DIRECTOR'] &&
+        data.missionsCompleted is number && data.missionsCompleted >= 0 && data.missionsCompleted <= 100000 &&
+        data.averageSafetyScore is number && data.averageSafetyScore >= 0 && data.averageSafetyScore <= 100 &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivateInfo(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'updatedAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'assignedInstructorEmail', 'updatedAt']) &&
+        data.uid is string && data.uid == userId &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+        (!('assignedInstructorEmail' in data) || (data.assignedInstructorEmail is string && data.assignedInstructorEmail.size() <= 160)) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSimulationRun(data, runId) {
+      return data.keys().hasAll([
+          'runId', 'userId', 'callsign', 'mode', 'outcome',
+          'safetyScore', 'durationSec', 'standardRef', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'runId', 'userId', 'callsign', 'instructorEmail', 'mode', 'outcome',
+          'safetyScore', 'durationSec', 'fuelRemainingPct', 'closureRateMs',
+          'alignmentErrorDeg', 'radiationDoseMsv', 'drillsResolved',
+          'vrUsed', 'hardwareInputUsed', 'multiplayerRoom', 'standardRef', 'createdAt'
+        ]) &&
+        data.runId is string && data.runId == runId &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        data.callsign is string && data.callsign.size() >= 2 && data.callsign.size() <= 24 &&
+        (!('instructorEmail' in data) || (data.instructorEmail is string && data.instructorEmail.size() <= 160)) &&
+        data.mode in ['docking', 'lunar_outpost', 'mars_outpost'] &&
+        data.outcome in ['SUCCESS', 'ABORTED', 'FAILED'] &&
+        data.safetyScore is number && data.safetyScore >= 0 && data.safetyScore <= 100 &&
+        data.durationSec is number && data.durationSec >= 0 && data.durationSec <= 86400 &&
+        (!('fuelRemainingPct' in data) || (data.fuelRemainingPct is number && data.fuelRemainingPct >= 0 && data.fuelRemainingPct <= 100)) &&
+        (!('closureRateMs' in data) || (data.closureRateMs is number && data.closureRateMs >= 0 && data.closureRateMs <= 100)) &&
+        (!('alignmentErrorDeg' in data) || (data.alignmentErrorDeg is number && data.alignmentErrorDeg >= 0 && data.alignmentErrorDeg <= 180)) &&
+        (!('radiationDoseMsv' in data) || (data.radiationDoseMsv is number && data.radiationDoseMsv >= 0 && data.radiationDoseMsv <= 10000)) &&
+        (!('drillsResolved' in data) || (data.drillsResolved is number && data.drillsResolved >= 0 && data.drillsResolved <= 100)) &&
+        (!('vrUsed' in data) || data.vrUsed is bool) &&
+        (!('hardwareInputUsed' in data) || data.hardwareInputUsed is bool) &&
+        (!('multiplayerRoom' in data) || (data.multiplayerRoom is string && data.multiplayerRoom.size() <= 40)) &&
+        data.standardRef is string && data.standardRef.size() >= 2 && data.standardRef.size() <= 40 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidFlightCredential(data, credentialId) {
+      return data.keys().hasAll([
+          'credentialId', 'userId', 'certificationLevel', 'algorithm',
+          'ivHex', 'authTagHex', 'ciphertextHex', 'fingerprintSha256', 'status', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'credentialId', 'userId', 'instructorEmail', 'certificationLevel', 'algorithm',
+          'ivHex', 'authTagHex', 'ciphertextHex', 'fingerprintSha256', 'status', 'createdAt'
+        ]) &&
+        data.credentialId is string && data.credentialId == credentialId &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        (!('instructorEmail' in data) || (data.instructorEmail is string && data.instructorEmail.size() <= 160)) &&
+        data.certificationLevel in ['ORBITAL_DOCKING_L1', 'OUTPOST_OPS_L2', 'COMMAND_READY_L3'] &&
+        data.algorithm is string && data.algorithm.size() >= 3 && data.algorithm.size() <= 32 &&
+        data.ivHex is string && data.ivHex.size() >= 16 && data.ivHex.size() <= 64 &&
+        data.authTagHex is string && data.authTagHex.size() >= 16 && data.authTagHex.size() <= 64 &&
+        data.ciphertextHex is string && data.ciphertextHex.size() >= 16 && data.ciphertextHex.size() <= 4096 &&
+        data.fingerprintSha256 is string && data.fingerprintSha256.size() >= 32 && data.fingerprintSha256.size() <= 128 &&
+        data.status in ['ACTIVE', 'REVOKED'] &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidCertificationReport(data, reportId) {
+      return data.keys().hasAll([
+          'reportId', 'userId', 'status', 'readinessScore',
+          'summary', 'identifiedGaps', 'recommendations', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'reportId', 'userId', 'instructorEmail', 'status', 'readinessScore',
+          'summary', 'identifiedGaps', 'recommendations', 'createdAt'
+        ]) &&
+        data.reportId is string && data.reportId == reportId &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        (!('instructorEmail' in data) || (data.instructorEmail is string && data.instructorEmail.size() <= 160)) &&
+        data.status in ['CERTIFIED', 'PROVISIONAL', 'RETEST_REQUIRED'] &&
+        data.readinessScore is number && data.readinessScore >= 0 && data.readinessScore <= 100 &&
+        data.summary is string && data.summary.size() >= 10 && data.summary.size() <= 2000 &&
+        data.identifiedGaps is list && data.identifiedGaps.size() <= 10 &&
+        (data.identifiedGaps.size() == 0 || data.identifiedGaps[0] is string) &&
+        data.recommendations is list && data.recommendations.size() <= 10 &&
+        (data.recommendations.size() == 0 || data.recommendations[0] is string) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidAuditLog(data, logId) {
+      return data.keys().hasAll([
+          'logId', 'userId', 'action', 'standardRef', 'detail', 'integrityHash', 'createdAt'
+        ]) &&
+        data.keys().hasOnly([
+          'logId', 'userId', 'actorEmail', 'action', 'standardRef', 'detail', 'integrityHash', 'createdAt'
+        ]) &&
+        data.logId is string && data.logId == logId &&
+        data.userId is string && data.userId.size() >= 1 && data.userId.size() <= 128 &&
+        (!('actorEmail' in data) || (data.actorEmail is string && data.actorEmail.size() <= 160)) &&
+        data.action is string && data.action.size() >= 2 && data.action.size() <= 80 &&
+        data.standardRef is string && data.standardRef.size() >= 2 && data.standardRef.size() <= 40 &&
+        data.detail is string && data.detail.size() >= 2 && data.detail.size() <= 500 &&
+        data.integrityHash is string && data.integrityHash.size() >= 16 && data.integrityHash.size() <= 128 &&
+        data.createdAt is timestamp;
+    }
+
+    // Bootstrapped admin directory (read-only from client)
+    match /admins/{adminUid} {
+      allow get: if isVerified() && isValidId(adminUid) && request.auth.uid == adminUid;
+      allow list, write: if false;
+    }
+
+    // Health check doc for connection validation
+    match /test/connection {
+      allow get: if isSignedIn();
+      allow list, write: if false;
+    }
+
+    // Public astronaut/instructor profiles (no PII)
+    match /users/{userId} {
+      allow get: if isVerified() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isVerified() && (
+        resource.data.uid == request.auth.uid ||
+        request.auth.token.email == 'gracelubega41@gmail.com'
+      );
+      allow create: if isVerified() && isValidId(userId) &&
+        request.auth.uid == userId &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (incoming().role == 'trainee' && incoming().clearanceTier == 'CADET' && incoming().missionsCompleted == 0)
+        );
+      allow update: if isVerified() && isValidId(userId) &&
+        isValidUserProfile(incoming(), userId) &&
+        incoming().uid == existing().uid &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            request.auth.uid == userId &&
+            incoming().role == existing().role &&
+            incoming().clearanceTier == existing().clearanceTier &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'callsign', 'missionsCompleted', 'averageSafetyScore', 'updatedAt'])
+          )
+        );
+      allow delete: if false;
+
+      match /private/{docId} {
+        allow get: if isVerified() && isValidId(userId) && isValidId(docId) && (request.auth.uid == userId || isAdmin());
+        allow list: if false;
+        allow create: if isVerified() && isValidId(userId) && isValidId(docId) &&
+          request.auth.uid == userId &&
+          isValidUserPrivateInfo(incoming(), userId) &&
+          incoming().updatedAt == request.time;
+        allow update: if isVerified() && isValidId(userId) && isValidId(docId) &&
+          (request.auth.uid == userId || isAdmin()) &&
+          isValidUserPrivateInfo(incoming(), userId) &&
+          incoming().uid == existing().uid &&
+          incoming().updatedAt == request.time &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['email', 'assignedInstructorEmail', 'updatedAt']);
+        allow delete: if false;
+      }
+    }
+
+    // Simulation runs
+    match /simulations/{runId} {
+      allow get: if isVerified() && isValidId(runId) && (
+        existing().userId == request.auth.uid ||
+        existing().instructorEmail == request.auth.token.email ||
+        isAdmin()
+      );
+      allow list: if isVerified() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.instructorEmail == request.auth.token.email ||
+        request.auth.token.email == 'gracelubega41@gmail.com'
+      );
+      allow create: if isVerified() && isValidId(runId) &&
+        incoming().userId == request.auth.uid &&
+        isValidSimulationRun(incoming(), runId) &&
+        incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Encrypted flight credentials
+    match /credentials/{credentialId} {
+      allow get: if isVerified() && isValidId(credentialId) && (
+        existing().userId == request.auth.uid ||
+        existing().instructorEmail == request.auth.token.email ||
+        isAdmin()
+      );
+      allow list: if isVerified() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.instructorEmail == request.auth.token.email ||
+        request.auth.token.email == 'gracelubega41@gmail.com'
+      );
+      allow create: if isVerified() && isValidId(credentialId) &&
+        incoming().userId == request.auth.uid &&
+        incoming().status == 'ACTIVE' &&
+        isValidFlightCredential(incoming(), credentialId) &&
+        incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidId(credentialId) &&
+        isValidFlightCredential(incoming(), credentialId) &&
+        existing().status == 'ACTIVE' &&
+        incoming().status == 'REVOKED' &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().userId == existing().userId &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      allow delete: if false;
+    }
+
+    // AI Certification Reports
+    match /certifications/{reportId} {
+      allow get: if isVerified() && isValidId(reportId) && (
+        existing().userId == request.auth.uid ||
+        existing().instructorEmail == request.auth.token.email ||
+        isAdmin()
+      );
+      allow list: if isVerified() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.instructorEmail == request.auth.token.email ||
+        request.auth.token.email == 'gracelubega41@gmail.com'
+      );
+      allow create: if isVerified() && isValidId(reportId) &&
+        incoming().userId == request.auth.uid &&
+        isValidCertificationReport(incoming(), reportId) &&
+        incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+
+    // Immutable regulatory audit trail
+    match /auditLogs/{logId} {
+      allow get: if isVerified() && isValidId(logId) && (
+        existing().userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isVerified() && (
+        resource.data.userId == request.auth.uid ||
+        request.auth.token.email == 'gracelubega41@gmail.com'
+      );
+      allow create: if isVerified() && isValidId(logId) &&
+        incoming().userId == request.auth.uid &&
+        isValidAuditLog(incoming(), logId) &&
+        incoming().createdAt == request.time;
+      allow update, delete: if false;
+    }
+  }
+}

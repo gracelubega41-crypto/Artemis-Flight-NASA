@@ -1,0 +1,136 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Public astronaut candidate or flight instructor profile.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "callsign": { "type": "string", "minLength": 2, "maxLength": 24, "pattern": "^[A-Z0-9\\-]+$" },
+        "role": { "type": "string", "enum": ["trainee", "instructor"] },
+        "clearanceTier": { "type": "string", "enum": ["CADET", "FLIGHT_READY", "COMMANDER", "FLIGHT_DIRECTOR"] },
+        "missionsCompleted": { "type": "number" },
+        "averageSafetyScore": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "callsign", "role", "clearanceTier", "missionsCompleted", "averageSafetyScore", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Isolated PII and instructor assignment metadata for a user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "assignedInstructorEmail": { "type": "string", "maxLength": 160 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "updatedAt"]
+    },
+    "SimulationRun": {
+      "title": "SimulationRun",
+      "description": "Recorded telemetry summary and safety evaluation from a docking or outpost mission simulation.",
+      "type": "object",
+      "properties": {
+        "runId": { "type": "string", "minLength": 4, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "callsign": { "type": "string", "minLength": 2, "maxLength": 24 },
+        "instructorEmail": { "type": "string", "maxLength": 160 },
+        "mode": { "type": "string", "enum": ["docking", "lunar_outpost", "mars_outpost"] },
+        "outcome": { "type": "string", "enum": ["SUCCESS", "ABORTED", "FAILED"] },
+        "safetyScore": { "type": "number" },
+        "durationSec": { "type": "number" },
+        "fuelRemainingPct": { "type": "number" },
+        "closureRateMs": { "type": "number" },
+        "alignmentErrorDeg": { "type": "number" },
+        "radiationDoseMsv": { "type": "number" },
+        "drillsResolved": { "type": "number" },
+        "vrUsed": { "type": "boolean" },
+        "hardwareInputUsed": { "type": "boolean" },
+        "multiplayerRoom": { "type": "string", "maxLength": 40 },
+        "standardRef": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["runId", "userId", "callsign", "mode", "outcome", "safetyScore", "durationSec", "standardRef", "createdAt"]
+    },
+    "FlightCredential": {
+      "title": "FlightCredential",
+      "description": "AES-256-GCM encrypted astronaut flight credential envelope.",
+      "type": "object",
+      "properties": {
+        "credentialId": { "type": "string", "minLength": 4, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "instructorEmail": { "type": "string", "maxLength": 160 },
+        "certificationLevel": { "type": "string", "enum": ["ORBITAL_DOCKING_L1", "OUTPOST_OPS_L2", "COMMAND_READY_L3"] },
+        "algorithm": { "type": "string", "maxLength": 32 },
+        "ivHex": { "type": "string", "minLength": 16, "maxLength": 64 },
+        "authTagHex": { "type": "string", "minLength": 16, "maxLength": 64 },
+        "ciphertextHex": { "type": "string", "minLength": 16, "maxLength": 4096 },
+        "fingerprintSha256": { "type": "string", "minLength": 32, "maxLength": 128 },
+        "status": { "type": "string", "enum": ["ACTIVE", "REVOKED"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["credentialId", "userId", "certificationLevel", "algorithm", "ivHex", "authTagHex", "ciphertextHex", "fingerprintSha256", "status", "createdAt"]
+    },
+    "CertificationReport": {
+      "title": "CertificationReport",
+      "description": "AI-generated training gap analysis and automated flight readiness certification report.",
+      "type": "object",
+      "properties": {
+        "reportId": { "type": "string", "minLength": 4, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "instructorEmail": { "type": "string", "maxLength": 160 },
+        "status": { "type": "string", "enum": ["CERTIFIED", "PROVISIONAL", "RETEST_REQUIRED"] },
+        "readinessScore": { "type": "number" },
+        "summary": { "type": "string", "minLength": 10, "maxLength": 2000 },
+        "identifiedGaps": { "type": "array", "maxLength": 10 },
+        "recommendations": { "type": "array", "maxLength": 10 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["reportId", "userId", "status", "readinessScore", "summary", "identifiedGaps", "recommendations", "createdAt"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Append-only regulatory compliance audit trail entry.",
+      "type": "object",
+      "properties": {
+        "logId": { "type": "string", "minLength": 4, "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "actorEmail": { "type": "string", "maxLength": 160 },
+        "action": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "standardRef": { "type": "string", "minLength": 2, "maxLength": 40 },
+        "detail": { "type": "string", "minLength": 2, "maxLength": 500 },
+        "integrityHash": { "type": "string", "minLength": 16, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["logId", "userId", "action", "standardRef", "detail", "integrityHash", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Public astronaut/instructor profile keyed by Auth UID."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Private PII and instructor email assignment isolated from public profile."
+    },
+    "/simulations/{runId}": {
+      "schema": { "$ref": "#/entities/SimulationRun" },
+      "description": "Mission simulation runs for cloud progress tracking."
+    },
+    "/credentials/{credentialId}": {
+      "schema": { "$ref": "#/entities/FlightCredential" },
+      "description": "Encrypted AES-256-GCM flight credentials."
+    },
+    "/certifications/{reportId}": {
+      "schema": { "$ref": "#/entities/CertificationReport" },
+      "description": "AI-driven training gap analyses and certification determinations."
+    },
+    "/auditLogs/{logId}": {
+      "schema": { "$ref": "#/entities/AuditLog" },
+      "description": "Immutable regulatory compliance audit trail."
+    }
+  }
+}
